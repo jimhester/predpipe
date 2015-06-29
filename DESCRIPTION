@@ -5,5 +5,13 @@ Authors@R: person("Jim", "Hester", email = "james.f.hester@gmail.com", role = c(
 Description: Predict the next pipe function from the previous function in the
   chain.  Just generates a dataset currently.
 Depends: R (>= 3.3.0)
-License: MIT
+License: MIT + file LICENSE
 LazyData: true
+Suggests: knitr,
+  plyr,
+  dplyr,
+  tidyr,
+  reshape2,
+  stringr,
+  ggplot2
+VignetteBuilder: knitr

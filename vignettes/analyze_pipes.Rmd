@@ -1,0 +1,78 @@
+---
+title: "Analysis of magrittr/dplyr pipes in CRAN packages"
+author: "Jim Hester and David Robinson"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Analysis of magrittr/dplyr pipes in CRAN packages}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+First we turn the pipes dataset into a tidy data frame:
+
+```{r, message = FALSE}
+library(plyr)
+library(dplyr)
+library(tidyr)
+library(reshape2)
+library(stringr)
+
+library(predpipe)
+
+pipes_tidy <- pipes %>%
+  ldply(melt, .id = "path") %>%
+  rename(step = value, chain = L1) %>%
+  separate(path, c("package", "folder", "file"), "\\/", extra = "merge") %>%
+  group_by(package, folder, file, chain) %>%
+  mutate(position = row_number()) %>%
+  mutate(step = str_replace(step, "^.*::", ""))
+
+pipes_tidy
+```
+
+Then we create a set of pairs and graph the frequency:
+
+```{r}
+pairs <- pipes_tidy %>%
+  do(data.frame(from = head(.$step, -1), to = tail(.$step, -1)))
+
+transitions <- pairs %>%
+  group_by(from, to) %>%
+  summarize(n = n(), packages = length(unique(package))) %>%
+  group_by(from) %>%
+  mutate(normalized = n / sum(n)) %>%
+  ungroup() %>%
+  arrange(desc(n))
+
+transitions
+```
+
+The "normalized" column is overtaken by 1-to-1 trasitions, so we decide to include only steps (to or from) that happen in at least 5 times across at least two packages. (This filtering should be examined).
+
+```{r}
+transitions_filtered <- transitions %>%
+  group_by(from) %>%
+  filter(sum(n) >= 5, max(packages) >= 2) %>%
+  group_by(to) %>%
+  filter(sum(n) >= 5, max(packages) >= 2) %>%
+  ungroup() %>%
+  arrange(desc(normalized))
+
+transitions_filtered
+```
+
+We can then graph the transition matrix:
+
+```{r fig.width = 8, fig.height = 8, out.height="600", out.width="600"}
+library(ggplot2)
+
+# reorder transitions by their frequency
+transitions_filtered %>%
+  mutate(from = reorder(from, n, sum),
+         to = reorder(to, n, sum)) %>%
+  ggplot(aes(to, from, fill = normalized)) +
+  geom_tile() +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
