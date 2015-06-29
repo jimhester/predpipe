@@ -67,10 +67,17 @@ We can then graph the transition matrix:
 ```{r fig.width = 8, fig.height = 8, out.height="600", out.width="600"}
 library(ggplot2)
 
+add_freq <- function(x, wts = rep(1, x)) {
+  wts_ave <- ave(wts, x)
+  ret <- factor(paste0(x, " (", unname(table(x)[x] * wts_ave), ")"))
+  reorder(ret, wts, sum)
+}
+
 # reorder transitions by their frequency
 transitions_filtered %>%
-  mutate(from = reorder(from, n, sum),
-         to = reorder(to, n, sum)) %>%
+  ungroup() %>%
+  mutate(from = add_freq(from, n),
+         to = add_freq(to, n)) %>%
   ggplot(aes(to, from, fill = normalized)) +
   geom_tile() +
   theme_bw() +
