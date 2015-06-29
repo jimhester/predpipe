@@ -1,0 +1,9 @@
+Package: predpipe
+Title: Predict the next pipe function from the previous functions in the chain.
+Version: 0.0.0.9000
+Authors@R: person("Jim", "Hester", email = "james.f.hester@gmail.com", role = c("aut", "cre"))
+Description: Predict the next pipe function from the previous function in the
+  chain.  Just generates a dataset currently.
+Depends: R (>= 3.3.0)
+License: MIT
+LazyData: true
