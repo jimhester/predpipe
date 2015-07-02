@@ -127,9 +127,9 @@ cache_script <- function(url) {
     return()
   }
   message("Caching ", local)
-  dir.create(file.path("cache", "scripts", dirname(local)), showWarnings = FALSE, recursive = TRUE)
+  dir.create(dirname(local), showWarnings = FALSE, recursive = TRUE)
   file <- httr::content(httr::GET(link))
-  cat(file = file.path("cache", "scripts", local), file)
+  cat(file = local, file)
 }
 
 parse_github_link <- function(link) {
@@ -139,18 +139,27 @@ parse_github_link <- function(link) {
        file = res[6])
 }
 
-Map(cache_script, links)
-
 links <- github_code_search(paste("in:file",
       "language:r",
       "\"library dplyr\"",
       "OR",
       "\"library magrittr\""))
 
+Map(cache_script, links)
+
 # parse all the files
 files <- list.files("cache", recursive = TRUE)
-pipes <- Filter(function(x) length(x) > 0 && !inherits(x, "try-error"),
+pipes_raw <- Filter(function(x) length(x) > 0 && !inherits(x, "try-error"),
                Map(function(x) try(pipes_in_file(file.path("cache", x))),
                    files))
+
+# Turn the pipes dataset into a tidy data frame
+pipes <- pipes_raw %>%
+  plyr::ldply(reshape2::melt, .id = "path") %>%
+  dplyr::rename(step = value, chain = L1) %>%
+  tidyr::separate(path, c("package", "folder", "file"), "\\/", extra = "merge") %>%
+  dplyr::group_by(package, folder, file, chain) %>%
+  dplyr::mutate(position = row_number()) %>%
+  dplyr::mutate(step = stringr::str_replace(step, "^.*::", ""))
 
 save(pipes, file = "data/pipes.rda")

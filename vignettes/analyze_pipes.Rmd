@@ -9,32 +9,12 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-First we turn the pipes dataset into a tidy data frame:
+First we create a set of pairs and graph the frequency:
 
-```{r, message = FALSE}
-library(plyr)
-library(dplyr)
-library(tidyr)
-library(reshape2)
-library(stringr)
-
+```{r, message = FALSE, warning = FALSE}
 library(predpipe)
-
-pipes_tidy <- pipes %>%
-  ldply(melt, .id = "path") %>%
-  rename(step = value, chain = L1) %>%
-  separate(path, c("package", "folder", "file"), "\\/", extra = "merge") %>%
-  group_by(package, folder, file, chain) %>%
-  mutate(position = row_number()) %>%
-  mutate(step = str_replace(step, "^.*::", ""))
-
-pipes_tidy
-```
-
-Then we create a set of pairs and graph the frequency:
-
-```{r}
-pairs <- pipes_tidy %>%
+library(dplyr)
+pairs <- pipes %>%
   do(data.frame(from = head(.$step, -1), to = tail(.$step, -1)))
 
 transitions <- pairs %>%
@@ -48,7 +28,9 @@ transitions <- pairs %>%
 transitions
 ```
 
-The "normalized" column is overtaken by 1-to-1 trasitions, so we decide to include only steps (to or from) that happen in at least 5 times across at least two packages. (This filtering should be examined).
+The "normalized" column is overtaken by 1-to-1 transitions, so we decide to
+include only steps (to or from) that happen in at least 5 times across at least
+two packages. (This filtering should be examined).
 
 ```{r}
 transitions_filtered <- transitions %>%
