@@ -76,6 +76,77 @@ pipes_in_file <- function(file) {
   Filter(Negate(is.null), Map(pipe_calls, parse(file)))
 }
 
+library(httr)
+# The github API code search requires you to specify a repo/user/org to search over, so it cannot be used.
+#github = GET("https://api.github.com/search/code",
+             #list(q="library(dplyr)+in:file+language:r"))
+
+# So we will have to use the normal search and parse the results, i.e.
+# https://github.com/search?p=100&q=in%3Afile+language%3Ar+%22library+dplyr%22++OR+%22library+magrittr%22&ref=searchresults&type=Code&utf8=%E2%9C%93
+
+github_code_search <- function(search, sleep = sample(10:15, size = 1)) {
+  library(rvest)
+  html_session("https://github.com") %>%
+  jump_to("/search",
+          query = list(q = search,
+                       type = "Code")) ->
+  s
+
+  res <- list()
+  while(TRUE) {
+    itr <- try(s <- s %>% follow_link(css = "a.next_page"), silent = TRUE)
+    # github rate limits you unless you sleep for a second
+    Sys.sleep(sleep)
+
+    if (inherits(itr, "try-error")) {
+      if (grepl("No links matched that expression", itr)) {
+
+        # reached the end of the pages so return the data
+        return(unlist(res))
+      } else {
+
+        # if there was a real error throw it
+        stop(attr(itr, "condition"))
+      }
+    }
+    # otherwise get the links and add them to the list
+    s %>%
+      html_nodes("p.title a:nth-of-type(2)") %>%
+      html_attr("href") ->
+    file_links
+
+    res[[length(res) + 1]] <- file_links
+  }
+}
+
+cache_script <- function(url) {
+  the <- parse_github_link(url)
+  link <- paste0("https://raw.githubusercontent.com", gsub("/blob", "", url))
+  local <- file.path("cache", "scripts", the$user, the$repo, the$file)
+  if (file.exists(file.path(local))) {
+    return()
+  }
+  message("Caching ", local)
+  dir.create(file.path("cache", "scripts", dirname(local)), showWarnings = FALSE, recursive = TRUE)
+  file <- httr::content(httr::GET(link))
+  cat(file = file.path("cache", "scripts", local), file)
+}
+
+parse_github_link <- function(link) {
+  res <- strsplit(link, "/")[[1]]
+  list(user = res[2],
+       repo = res[3],
+       file = res[6])
+}
+
+Map(cache_script, links)
+
+links <- github_code_search(paste("in:file",
+      "language:r",
+      "\"library dplyr\"",
+      "OR",
+      "\"library magrittr\""))
+
 # parse all the files
 files <- list.files("cache", recursive = TRUE)
 pipes <- Filter(function(x) length(x) > 0 && !inherits(x, "try-error"),
